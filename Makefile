@@ -4,7 +4,7 @@ DIRNAME=$(shell basename ${PWD})
 test:
 	golint -set_exit_status
 	go fmt
-	go test -v
+	go test -v -cover
 
 build: test
 	@mkdir -p build

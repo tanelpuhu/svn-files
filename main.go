@@ -13,6 +13,11 @@ import (
 	"text/tabwriter"
 )
 
+var (
+	flagLimit int
+	flagRange string
+)
+
 type typeXMLInfo struct {
 	RelativeURL string `xml:"entry>relative-url"`
 }
@@ -62,7 +67,14 @@ func getXMLLog(relativeURL string, content []byte) []typeCommitPath {
 	var (
 		res []typeCommitPath
 	)
-	for _, entry := range logs.Entries {
+	entries := logs.Entries
+	sort.Slice(entries, func(i, j int) bool {
+		i, _ = strconv.Atoi(entries[i].Revision)
+		j, _ = strconv.Atoi(entries[j].Revision)
+		return i > j
+	})
+
+	for _, entry := range entries {
 		for _, path := range entry.Paths {
 			if !strings.HasPrefix(path, relativeURL) {
 				continue
@@ -89,13 +101,17 @@ func getXMLLog(relativeURL string, content []byte) []typeCommitPath {
 	})
 	return res
 }
+func init() {
+	flag.IntVar(&flagLimit, "l", 100, "How many last commits to check")
+	flag.StringVar(&flagRange, "r", "", "Revision(s) (or range with NUMBER/DATE/HEAD/etc))")
+	flag.Parse()
+}
 
 func main() {
 	var (
 		args []string
 		path string
 	)
-	flag.Parse()
 	args = flag.Args()
 
 	if len(args) == 0 {
@@ -110,16 +126,23 @@ func main() {
 		log.Fatal(err)
 	}
 	relativeURL := getRelativeURL(infoContent)
-	logContent, err := exec.Command("svn", "log", "-v", "-l", "10", "--xml", "-l", "100", path).Output()
+
+	cmdargs := []string{"log", "-v", "--xml"}
+	if flagRange != "" {
+		cmdargs = append(cmdargs, []string{"-r", flagRange}...)
+	} else {
+		cmdargs = append(cmdargs, []string{"-l", fmt.Sprintf("%d", flagLimit)}...)
+	}
+	cmdargs = append(cmdargs, path)
+
+	logContent, err := exec.Command("svn", cmdargs...).Output()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 2, ' ', 0)
-
 	for _, entry := range getXMLLog(relativeURL, logContent) {
 		fmt.Fprintln(w, fmt.Sprintf("%s\t%s\t%s\t%s", entry.Date, entry.Revision, entry.Author, entry.Path))
 	}
 	w.Flush()
-
 }
