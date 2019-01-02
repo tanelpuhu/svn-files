@@ -23,18 +23,18 @@ type typeXMLInfo struct {
 	RelativeURL string `xml:"entry>relative-url"`
 }
 
-type Path struct {
+type typePath struct {
 	Path   string `xml:",chardata"`
 	Action string `xml:"action,attr"`
 }
 
 type typeXMLLog struct {
 	Entries []struct {
-		Revision string `xml:"revision,attr"`
-		Author   string `xml:"author"`
-		Date     string `xml:"date"`
-		Message  string `xml:"msg"`
-		Paths    []Path `xml:"paths>path"`
+		Revision string     `xml:"revision,attr"`
+		Author   string     `xml:"author"`
+		Date     string     `xml:"date"`
+		Message  string     `xml:"msg"`
+		Paths    []typePath `xml:"paths>path"`
 	} `xml:"logentry"`
 }
 
