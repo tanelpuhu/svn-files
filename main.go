@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 )
 
 var (
@@ -22,13 +23,18 @@ type typeXMLInfo struct {
 	RelativeURL string `xml:"entry>relative-url"`
 }
 
+type Path struct {
+	Path   string `xml:",chardata"`
+	Action string `xml:"action,attr"`
+}
+
 type typeXMLLog struct {
 	Entries []struct {
-		Revision string   `xml:"revision,attr"`
-		Author   string   `xml:"author"`
-		Date     string   `xml:"date"`
-		Message  string   `xml:"msg"`
-		Paths    []string `xml:"paths>path"`
+		Revision string `xml:"revision,attr"`
+		Author   string `xml:"author"`
+		Date     string `xml:"date"`
+		Message  string `xml:"msg"`
+		Paths    []Path `xml:"paths>path"`
 	} `xml:"logentry"`
 }
 
@@ -38,6 +44,7 @@ type typeCommitPath struct {
 	Date     string
 	Message  string
 	Path     string
+	Action   string
 }
 
 func getRelativeURL(content []byte) string {
@@ -76,19 +83,20 @@ func getXMLLog(relativeURL string, content []byte) []typeCommitPath {
 
 	for _, entry := range entries {
 		for _, path := range entry.Paths {
-			if !strings.HasPrefix(path, relativeURL) {
+			if !strings.HasPrefix(path.Path, relativeURL) {
 				continue
-			} else if path[len(relativeURL):] == "" {
+			} else if path.Path[len(relativeURL):] == "" {
 				continue
 			}
-			path = strings.TrimLeft(path[len(relativeURL):], "/")
-			if !inSSlice(res, path) {
+			path.Path = strings.TrimLeft(path.Path[len(relativeURL):], "/")
+			if !inSSlice(res, path.Path) {
 				res = append(res, typeCommitPath{
 					Revision: entry.Revision,
 					Author:   entry.Author,
-					Date:     strings.Replace(entry.Date[:19], "T", " ", 1),
+					Date:     textToLocalTimeText(entry.Date),
 					Message:  entry.Message,
-					Path:     path,
+					Path:     path.Path,
+					Action:   path.Action,
 				})
 			}
 
@@ -101,6 +109,15 @@ func getXMLLog(relativeURL string, content []byte) []typeCommitPath {
 	})
 	return res
 }
+
+func textToLocalTimeText(text string) string {
+	result, err := time.Parse("2006-01-02T15:04:05.000000Z", text)
+	if err != nil {
+		log.Fatalf("error parsing date %s: %v", text, err)
+	}
+	return result.Local().Format("2006-01-02 15:04:05")
+}
+
 func init() {
 	flag.IntVar(&flagLimit, "l", 100, "How many last commits to check")
 	flag.StringVar(&flagRange, "r", "", "Revision(s) (or range with NUMBER/DATE/HEAD/etc))")
@@ -142,7 +159,7 @@ func main() {
 
 	w := tabwriter.NewWriter(os.Stdout, 2, 0, 2, ' ', 0)
 	for _, entry := range getXMLLog(relativeURL, logContent) {
-		fmt.Fprintln(w, fmt.Sprintf("%s\t%s\t%s\t%s", entry.Date, entry.Revision, entry.Author, entry.Path))
+		fmt.Fprintln(w, fmt.Sprintf("%s\t%s\t%s\t%s\t%s", entry.Date, entry.Revision, entry.Author, entry.Action, entry.Path))
 	}
 	w.Flush()
 }
