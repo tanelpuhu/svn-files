@@ -15,8 +15,10 @@ import (
 )
 
 var (
-	flagLimit int
-	flagRange string
+	flags struct {
+		limit    int
+		revision string
+	}
 )
 
 type typeXMLInfo struct {
@@ -118,13 +120,11 @@ func textToLocalTimeText(text string) string {
 	return result.Local().Format("2006-01-02 15:04:05")
 }
 
-func init() {
-	flag.IntVar(&flagLimit, "l", 100, "How many last commits to check")
-	flag.StringVar(&flagRange, "r", "", "Revision(s) (or range with NUMBER/DATE/HEAD/etc))")
-	flag.Parse()
-}
-
 func main() {
+	flag.IntVar(&flags.limit, "l", 100, "How many last commits to check")
+	flag.StringVar(&flags.revision, "r", "", "Revision(s) (or range with NUMBER/DATE/HEAD/etc))")
+	flag.Parse()
+
 	var (
 		args []string
 		path string
@@ -145,10 +145,10 @@ func main() {
 	relativeURL := getRelativeURL(infoContent)
 
 	cmdargs := []string{"log", "-v", "--xml"}
-	if flagRange != "" {
-		cmdargs = append(cmdargs, []string{"-r", flagRange}...)
+	if flags.revision != "" {
+		cmdargs = append(cmdargs, []string{"-r", flags.revision}...)
 	} else {
-		cmdargs = append(cmdargs, []string{"-l", fmt.Sprintf("%d", flagLimit)}...)
+		cmdargs = append(cmdargs, []string{"-l", fmt.Sprintf("%d", flags.limit)}...)
 	}
 	cmdargs = append(cmdargs, path)
 
